@@ -1,4 +1,8 @@
-class WhatsAppController {
+import { Format } from "../utils/Format";
+import { CameraController } from "./CameraController";
+import { DocumentPreviewController } from "./DocumentPreviewController";
+
+export class WhatsAppController {
   constructor() {
     console.log("WhatsAppController OK");
 
@@ -149,31 +153,87 @@ class WhatsAppController {
     this.el.inputPhoto.on("change", (e) => {
       console.log(this.el.inputPhoto.files);
 
-      [...this.el.inputPhoto.files].forEach(file => {
+      [...this.el.inputPhoto.files].forEach((file) => {
         console.log(file);
-      })
+      });
     });
 
     this.el.btnAttachCamera.on("click", (e) => {
       this.closeAllMainPanel();
-      this.el.panelCamera.addClass('open');
+      this.el.panelCamera.addClass("open");
+      this.el.panelCamera.css({
+        height: "100%",
+      });
+
+      this._camera = new CameraController(this.el.videoCamera);
     });
 
     this.el.btnClosePanelCamera.on("click", (e) => {
       this.closeAllMainPanel();
       this.el.panelMessagesContainer.show();
+      this._camera.stop();
     });
 
     this.el.btnTakePicture.on("click", (e) => {
-      console.log("Take Picture");
+      let dataUrl = this._camera.takePicture();
+      
+      this.el.pictureCamera.src = dataUrl;
+      this.el.pictureCamera.show();
+      this.el.videoCamera.hide();
+      this.el.btnReshootPanelCamera.show();
+      this.el.containerTakePicture.hide();
+      this.el.containerSendPicture.show();
+    });
+
+    this.el.btnReshootPanelCamera.on("click", (e) => {
+      this.el.pictureCamera.hide();
+      this.el.videoCamera.show();
+      this.el.btnReshootPanelCamera.hide();
+      this.el.containerTakePicture.show();
+      this.el.containerSendPicture.hide();
+    });
+
+    this.el.btnSendPicture.on("click", (e) => {
+      console.log(this.el.pictureCamera.src)
     });
 
     this.el.btnAttachDocument.on("click", (e) => {
       this.closeAllMainPanel();
       this.el.panelDocumentPreview.addClass("open");
       this.el.panelDocumentPreview.css({
-        'height': '100%'
+        height: "100%",
       });
+      this.el.inputDocument.click();
+    });
+
+    this.el.inputDocument.on("change", (e) => {
+      if (this.el.inputDocument.files.length) {
+        let file = this.el.inputDocument.files[0];
+
+        this._documentPreviewController = new DocumentPreviewController(file);
+        this._documentPreviewController.getPreviewData().then(result => {
+          this.el.imgPanelDocumentPreview.src = result.src;
+          this.el.infoPanelDocumentPreview.innerHTML = result.info;
+          this.el.imagePanelDocumentPreview.show();
+          this.el.filePanelDocumentPreview.hide();
+        }).catch(err => {
+          switch (file.type) {
+            // TODO: Adicionar todos os cases comuns (xls/xlsx, ppt/pptx, doc/docx);
+
+            case 'default':
+              
+              break;
+          
+            default:
+              this.el.iconPanelDocumentPreview.className = 'jcxhw icon-doc-generic';
+              break;
+          }
+
+          this.el.filenamePanelDocumentPreview.innerHTML = file.name;
+          this.el.imagePanelDocumentPreview.hide();
+          this.el.filePanelDocumentPreview.show();
+        })
+      }
     });
 
     this.el.btnClosePanelDocumentPreview.on("click", (e) => {
@@ -192,12 +252,89 @@ class WhatsAppController {
     this.el.btnCloseModalContacts.on("click", (e) => {
       this.el.modalContacts.hide();
     });
+
+    this.el.btnSendMicrophone.on("click", (e) => {
+      this.el.recordMicrophone.show();
+      this.el.btnSendMicrophone.hide();
+      this.startRecordMicrophoneTime();
+    });
+
+    this.el.btnCancelMicrophone.on("click", (e) => {
+      this.closeRecordMicrophone();
+    });
+
+    this.el.btnFinishMicrophone.on("click", (e) => {
+      this.closeRecordMicrophone();
+    });
+
+    this.el.inputText.on("keypress", (e) => {
+      if (e.key === "Enter" && !e.ctrlKey) {
+        e.preventDefault();
+        this.el.btnSend.click();
+      }
+    });
+
+    this.el.inputText.on("keyup", (e) => {
+      if (this.el.inputText.textContent !== "") {
+        this.el.inputPlaceholder.hide();
+        this.el.btnSendMicrophone.hide();
+        this.el.btnSend.show();
+      } else {
+        this.el.inputPlaceholder.show();
+        this.el.btnSendMicrophone.show();
+        this.el.btnSend.hide();
+      }
+    });
+
+    this.el.btnSend.on("click", (e) => {
+      console.log(this.el.inputText.textContent);
+    });
+
+    this.el.btnEmojis.on("click", (e) => {
+      this.el.panelEmojis.toggleClass("open");
+    });
+
+    this.el.panelEmojis.querySelectorAll(".emojik").forEach((emoji) => {
+      emoji.on("click", (e) => {
+        this.el.inputText.textContent += emoji.dataset.unicode;
+        this.el.inputText.dispatchEvent(new Event("keyup"));
+
+        let cursor = window.getSelection();
+
+        // TODO: permitir selecao de emoji em qualquer ponto da mensagem
+
+        // if (!cursor.focusNode || !cursor.focusNode.id == 'input-text') {
+        //   this.el.inputText.focus();
+        //   cursor = window.getSelection();
+        // }
+
+        // let range = document.createRange();
+
+        // range = cursor.getRangeAt(0);
+        // range.deleteContents();
+      });
+    });
+  }
+
+  startRecordMicrophoneTime() {
+    let start = Date.now();
+    this._recordMicrophoneInterval = setInterval(() => {
+      this.el.recordMicrophoneTimer.innerHTML = Format.toTime(
+        Date.now() - start
+      );
+    }, 100);
+  }
+
+  closeRecordMicrophone() {
+    this.el.recordMicrophone.hide();
+    this.el.btnSendMicrophone.show();
+    clearInterval(this._recordMicrophoneInterval);
   }
 
   closeAllMainPanel() {
     this.el.panelMessagesContainer.hide();
-    this.el.panelDocumentPreview.removeClass('open');
-    this.el.panelCamera.hide();
+    this.el.panelDocumentPreview.removeClass("open");
+    this.el.panelCamera.removeClass("open");
   }
 
   closeMenuAttach(e) {
