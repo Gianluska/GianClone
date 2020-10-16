@@ -211,7 +211,9 @@ export class WhatsAppController {
         let file = this.el.inputDocument.files[0];
 
         this._documentPreviewController = new DocumentPreviewController(file);
+
         this._documentPreviewController.getPreviewData().then(result => {
+          console.log(result)
           this.el.imgPanelDocumentPreview.src = result.src;
           this.el.infoPanelDocumentPreview.innerHTML = result.info;
           this.el.imagePanelDocumentPreview.show();
